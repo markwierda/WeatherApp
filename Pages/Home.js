@@ -9,6 +9,7 @@ export default class Home extends Component {
 
         this.state = {
             weather: {
+                city: null,
                 temperature: null,
                 description: null,
                 icon: null,
@@ -22,51 +23,49 @@ export default class Home extends Component {
 
     componentWillMount() {
         navigator.geolocation.getCurrentPosition( res => {
-            // this.setState({
-            //     latitide: res.coords.latitude,
-            //     longitude: res.coords.longitude
-            // });
-
             fetch('http://api.openweathermap.org/data/2.5/weather?lat=' + res.coords.latitude + '&lon=' + res.coords.longitude + '&appid=f0ebdcf69e4c89a02da69a9e847b198a&units=metric&lang=nl')
                 .then( res => res.json() )
                 .then( json => {
                     this.setState({
                         weather: {
-                            temperature: 18,
-                            description: "Zwaar bewolkt",
-                            icon: "04d",
+                            city: json.name,
+                            temperature: json.main.temp,
+                            description: json.weather[0].description,
+                            icon: json.weather[0].icon,
                             wind: {
-                                direction: 340,
-                                speed: 5.7
+                                direction: json.wind.deg,
+                                speed: json.wind.speed
                             }
                         }
                     });
-
-                    // this.setState({
-                    //     weather: {
-                    //         temperature: json.main.temp,
-                    //         description: json.weather.description,
-                    //         icon: json.weather.icon,
-                    //         wind: {
-                    //             direction: json.wind.deg,
-                    //             speed: json.wind.speed
-                    //         }
-                    //     }
-                    // });
                 })
                 .catch((error) => {
-                    console.error(error);
+                    console.error("err: " + error);
                 });
         });
+
+        this.GetTemperatureSetting();
+    }
+
+    async GetTemperatureSetting() {
+        try {
+            const value = await AsyncStorage.getItem('@WeatherApp:temperature');
+            if (value !== null) {
+              console.log(value);
+            }
+        } catch (error) {
+            console.log(value);
+        }
     }
 
     render() {
         return (
             <View>
                 <Button title="Settings" onPress={ () => { Actions.push('Settings') }} style={Style.container} />
+                <Text>{ this.state.weather.city }</Text>
                 <Text>{ this.state.weather.temperature }</Text>
                 <Text>{ this.state.weather.description }</Text>
-                <Text>{ this.state.icon }</Text>
+                <Text>{ this.state.weather.icon }</Text>
                 <Text>{ this.state.weather.wind.direction }</Text>
                 <Text>{ this.state.weather.wind.speed }</Text>
             </View>

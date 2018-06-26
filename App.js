@@ -2,14 +2,7 @@ import React, { Component } from 'react';
 import { Text, StyleSheet, Button } from 'react-native';
 import { Scene, Router, Actions, Stack } from 'react-native-router-flux';
 import Home from './Pages/Home';
-
-const Settings = () => (
-  <Button
-    title="Home"
-    onPress={() => Actions.push('Home')}
-    style={styles.container}
-  />
-);
+import Settings from './Pages/Settings';
 
 export default class App extends Component {
   render() {
