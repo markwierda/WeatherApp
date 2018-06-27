@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
-import { View, Text, Button } from 'react-native';
-import { Scene, Router, Actions, Stack } from 'react-native-router-flux';
+import { View, Text, Image, AsyncStorage } from 'react-native';
 import Style from '../Style';
 
 export default class Home extends Component {
@@ -8,10 +7,12 @@ export default class Home extends Component {
         super(props);
 
         this.state = {
+            settings: {
+                temperature: null
+            },
             weather: {
                 city: null,
                 temperature: null,
-                description: null,
                 icon: null,
                 wind: {
                     direction: null,
@@ -21,53 +22,140 @@ export default class Home extends Component {
         }
     }
 
-    componentWillMount() {
-        navigator.geolocation.getCurrentPosition( res => {
-            fetch('http://api.openweathermap.org/data/2.5/weather?lat=' + res.coords.latitude + '&lon=' + res.coords.longitude + '&appid=f0ebdcf69e4c89a02da69a9e847b198a&units=metric&lang=nl')
+    async componentWillMount() {
+        if (this.state.weather.city !== null) {
+            await AsyncStorage.setItem('@WeatherApp:city', this.state.weather.city);
+        } else {
+            await AsyncStorage.setItem('@WeatherApp:city', 'Hoogeveen');
+        }
+
+        await this.GetTemperatureSetting();
+        await this.GetTemperature();
+    }
+
+    async GetTemperatureSetting() {
+        try {
+            const temperature = await AsyncStorage.getItem('@WeatherApp:temperature');
+
+            if (temperature !== null) {
+                this.setState({
+                    settings: {
+                        temperature: temperature
+                    }
+                });
+            }  else {
+                await AsyncStorage.setItem('@WeatherApp:temperature', 'metric')
+            }
+        } catch (err) {
+            console.log('err: ' + err);
+        }
+    }
+
+    async GetTemperature() {
+        if (this.state.settings.temperature !== null) {
+            let url = null,
+                lang = 'nl',
+                city = await AsyncStorage.getItem('@WeatherApp:city');
+
+            if (city !== 'Location') {
+                if (city !== 'Hoogeveen' && city !== 'Meppel' && city !== "Zwolle") {
+                    lang = 'usa'
+                }
+
+                switch (this.state.settings.temperature) {
+                    case 'metric':
+                        url = 'https://api.openweathermap.org/data/2.5/weather?q=' + city + ',' + lang + '&appid=5563d55f4a20e1410333dabc5ecd411f&units=metric'
+                    break;
+                    case 'imperial':
+                        url = 'https://api.openweathermap.org/data/2.5/weather?q=' + city + ',' + lang + '&appid=5563d55f4a20e1410333dabc5ecd411f&units=imperial'
+                        break;
+                    default:
+                        url = 'https://api.openweathermap.org/data/2.5/weather?q=' + city + ',' + lang + '&appid=5563d55f4a20e1410333dabc5ecd411f&units=metric'
+                        break;
+                }
+
+                fetch(url)
                 .then( res => res.json() )
                 .then( json => {
                     this.setState({
                         weather: {
                             city: json.name,
                             temperature: json.main.temp,
-                            description: json.weather[0].description,
                             icon: json.weather[0].icon,
                             wind: {
-                                direction: json.wind.deg,
-                                speed: json.wind.speed
+                                direction: this.ToTextualDescription(json.wind.deg),
+                                speed: this.WindSpeed(json.wind.speed)
                             }
                         }
                     });
                 })
-                .catch((error) => {
-                    console.error("err: " + error);
+            } else {
+                navigator.geolocation.getCurrentPosition( position => {
+                    switch (this.state.settings.temperature) {
+                        case 'metric':
+                            url = 'https://api.openweathermap.org/data/2.5/weather?lat=' + position.coords.latitude + '&lon=' + position.coords.longitude + '&appid=5563d55f4a20e1410333dabc5ecd411f&units=metric'
+                            break;
+                        case 'imperial':
+                            url = 'https://api.openweathermap.org/data/2.5/weather?lat=' + position.coords.latitude + '&lon=' + position.coords.longitude + '&appid=5563d55f4a20e1410333dabc5ecd411f&units=imperial'
+                            break;
+                        default:
+                            url = 'https://api.openweathermap.org/data/2.5/weather?lat=' + position.coords.latitude + '&lon=' + position.coords.longitude + '&appid=5563d55f4a20e1410333dabc5ecd411f&units=metric'
+                            break;
+                    }
+    
+                    fetch(url)
+                        .then( res => res.json() )
+                        .then( json => {
+                            this.setState({
+                                weather: {
+                                    city: json.name,
+                                    temperature: json.main.temp,
+                                    icon: json.weather[0].icon,
+                                    wind: {
+                                        direction: this.ToTextualDescription(json.wind.deg),
+                                        speed: this.WindSpeed(json.wind.speed)
+                                    }
+                                }
+                            });
+                        })
                 });
-        });
-
-        this.GetTemperatureSetting();
+            }
+        }
     }
 
-    async GetTemperatureSetting() {
-        try {
-            const value = await AsyncStorage.getItem('@WeatherApp:temperature');
-            if (value !== null) {
-              console.log(value);
-            }
-        } catch (error) {
-            console.log(value);
+    ToTextualDescription(degree){
+        if (degree>337.5) return 'Northerly';
+        if (degree>292.5) return 'North Westerly';
+        if(degree>247.5) return 'Westerly';
+        if(degree>202.5) return 'South Westerly';
+        if(degree>157.5) return 'Southerly';
+        if(degree>122.5) return 'South Easterly';
+        if(degree>67.5) return 'Easterly';
+        if(degree>22.5){return 'North Easterly';}
+        return 'Northerly';
+    }
+
+    WindSpeed(speed) {
+        switch (this.state.settings.temperature) {
+            case 'metric':
+                console.log( (speed * 3.6).toFixed(2) );
+                return (speed * 3.6).toFixed(2) + ' km/h';
+            case 'imperial':
+                return speed + ' mp/h';
         }
+    }
+
+    async Reload() {
+        await this.GetTemperatureSetting();
+        await this.GetTemperature();
     }
 
     render() {
         return (
-            <View>
-                <Button title="Settings" onPress={ () => { Actions.push('Settings') }} style={Style.container} />
-                <Text>{ this.state.weather.city }</Text>
-                <Text>{ this.state.weather.temperature }</Text>
-                <Text>{ this.state.weather.description }</Text>
-                <Text>{ this.state.weather.icon }</Text>
-                <Text>{ this.state.weather.wind.direction }</Text>
-                <Text>{ this.state.weather.wind.speed }</Text>
+            <View style={Style.container}>
+                <Image style={Style.Image} source={{uri: 'https://openweathermap.org/img/w/' + this.state.weather.icon + '.png' }} />
+                <Text style={Style.Text}>{ this.state.weather.city }, { this.state.settings.temperature === 'metric' ? this.state.weather.temperature + ' \u0020\u2103' : this.state.weather.temperature + ' \u0020\u2109' }</Text>
+                <Text style={Style.Text}>{ this.state.weather.wind.direction } Wind, { this.state.weather.wind.speed }</Text>
             </View>
         )
     }

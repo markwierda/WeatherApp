@@ -1,13 +1,19 @@
-import React, { Component } from 'react';
 import { StyleSheet } from 'react-native';
 
 const Style = StyleSheet.create({
     container: {
-        alignItems: 'center',
         justifyContent: 'center',
-        paddingTop: 100,
-        backgroundColor: '#ecf0f1',
+        alignItems: 'center',
     },
+    Text: {
+        fontSize: 16,
+        textAlign: 'center',
+        paddingTop: 10
+    },
+    Image: {
+        width: 75, 
+        height: 75
+    }
 });
 
 export default Style;
